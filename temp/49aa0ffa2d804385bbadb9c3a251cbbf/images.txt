@@ -1,9 +1,0 @@
-file 'img_0.png'
-duration 3.415
-file 'img_1.png'
-duration 3.415
-file 'img_2.png'
-duration 3.415
-file 'img_3.png'
-duration 3.415
-file 'img_3.png'

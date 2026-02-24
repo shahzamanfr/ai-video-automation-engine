@@ -1,7 +1,0 @@
-file 'temp\fd95b748d0fc434cae68826d504c2361\img_0.png'
-duration 6.666666666666667
-file 'temp\fd95b748d0fc434cae68826d504c2361\img_1.png'
-duration 6.666666666666667
-file 'temp\fd95b748d0fc434cae68826d504c2361\img_2.png'
-duration 6.666666666666667
-file 'temp\fd95b748d0fc434cae68826d504c2361\img_2.png'
