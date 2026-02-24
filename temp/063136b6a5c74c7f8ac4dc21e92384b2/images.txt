@@ -1,0 +1,7 @@
+file 'img_0.png'
+duration 4.675048666666666
+file 'img_1.png'
+duration 4.675048666666666
+file 'img_2.png'
+duration 4.675048666666666
+file 'img_2.png'

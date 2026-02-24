@@ -1,0 +1,448 @@
+{
+  "name": "automation is working",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// Get data from previous nodes\nconst parsedData = $node['Parse JSON Output'].json;\nconst descriptionData = $json;\nconst editFieldsData = $node['Edit Fields'].json;\n\n// Extract values with proper fallbacks\nconst title = parsedData.title || 'Untitled';\nconst story = parsedData.story || 'No story';\nconst quote = parsedData.quote || 'No quote';\nconst description = descriptionData.output || 'Ancient Roman wisdom and stoic philosophy';\nconst script = `${story} ${quote}`;\nconst numberOfImages = editFieldsData.numberOfImages || 2;\nconst timeToPublish = editFieldsData.timeToPublish || new Date().toISOString();\nconst keywords = editFieldsData.videoKeywords || 'stoic,ancient rome';\n\n// Create clean filename\nconst cleanTitle = title\n  .toLowerCase()\n  .replace(/['''\"]/g, '')\n  .replace(/[^a-z0-9]/g, '_')\n  .replace(/_{2,}/g, '_')\n  .replace(/^_+|_+$/g, '')\n  .substring(0, 50);\n\nconst filename = cleanTitle || 'untitled';\n\n// Return structured data\nreturn {\n  title: title,\n  description: description,\n  script: script,\n  numberOfImages: numberOfImages,\n  timeToPublish: timeToPublish,\n  keywords: keywords,\n  filename: filename,\n  story: story,\n  quote: quote\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-32, -32],
+      "id": "eda73610-58c4-46a2-8dc7-f3b17a0beab9",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Based on the title, keywords, story & quote, write me a catchy YouTube video description for short-form content:\n\nTitle: {{ $json.title }}\nStory: {{ $json.story }}\nQuote: {{ $json.quote }}\nKeywords: {{ $('Edit Fields').item.json['videoKeywords'] }}\n\nReturn only the description text, no formatting, max 25 words. Focus on intrigue and value.",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [-176, 176],
+      "id": "0dbb1fd6-2542-4748-bae7-c0308584e8e2",
+      "name": "Description Agent"
+    },
+    {
+      "parameters": {
+        "model": "mistralai/mistral-7b-instruct:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [-96, 400],
+      "id": "eb6fcc4f-5a56-43d1-a4e0-f27f4f1b66dc",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CREDENTIAL_ID",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const output = $json.output;\ntry {\n  // Clean the output to remove any markdown formatting\n  const cleanOutput = output.replace(/json\\n?/g, '').replace(/\\n?/g, '').trim();\n  \n  const parsed = JSON.parse(cleanOutput);\n  \n  // Ensure all required fields exist\n  const result = {\n    title: parsed.title || 'Untitled',\n    story: parsed.story || 'No story generated',\n    quote: parsed.quote || 'No quote generated'\n  };\n  \n  return [{\n    json: result\n  }];\n} catch (error) {\n  // Improved error handling with fallback values\n  console.error('JSON Parse Error:', error.message);\n  console.error('Raw output:', output);\n  \n  // Try to extract values using regex as fallback\n  const titleMatch = output.match(/\"title\"\\s*:\\s*\"([^\"]+)\"/i);\n  const storyMatch = output.match(/\"story\"\\s*:\\s*\"([^\"]+)\"/i);\n  const quoteMatch = output.match(/\"quote\"\\s*:\\s*\"([^\"]+)\"/i);\n  \n  return [{\n    json: {\n      title: titleMatch ? titleMatch[1] : 'Wisdom of the Ages',\n      story: storyMatch ? storyMatch[1] : 'In the heart of ancient Rome, a philosopher contemplated the nature of virtue and wisdom.',\n      quote: quoteMatch ? quoteMatch[1] : 'The happiness of your life depends upon the quality of your thoughts. - Marcus Aurelius',\n      error: 'JSON Parse Error - Used fallback values',\n      rawOutput: output\n    }\n  }];\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-464, -64],
+      "id": "8ffa7b6e-a89e-4a3e-b914-72c91aa9d20e",
+      "name": "Parse JSON Output"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "Write a short, complete stoic story set in ancient Rome that fits perfectly into a 20-second narration.\n\nSTRICT RULES (DO NOT BREAK):\n- TOTAL words (story + quote combined): 45–50 words ONLY\n- Story: 30–34 words\n- Quote: 10–14 words\n- 2–3 sentences max (not 4)\n- Ending must feel complete and intentional, not abrupt\n- No filler phrases, no long sentences\n\nFocus on one clear moment or realization.\nMake the ending land cleanly.\n\nReturn strictly valid JSON with these fields only (no formatting, no extra text):\n\n{\n  \"title\": \"<max 5 words>\",\n  \"story\": \"<story>\",\n  \"quote\": \"<quote>\"\n}\n",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [-592, 176],
+      "id": "00d20f55-8509-4d4b-a2f9-ed10358c7691",
+      "name": "Idea & Script"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9a434378-0b4c-470b-a321-523dea566712",
+              "name": "videoKeywords",
+              "value": "stoic,ancient rome,roman architecture",
+              "type": "string"
+            },
+            {
+              "id": "1d72cb4f-f6e9-44e1-86dc-bba76cb20b04",
+              "name": "numberOfImages",
+              "value": 4,
+              "type": "number"
+            },
+            {
+              "id": "3b825180-19aa-4072-b9f1-eecb6d80e1af",
+              "name": "timeToPublish",
+              "value": "={{ $now }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-768, 176],
+      "id": "24ca298a-777c-42d3-a850-76548e4e567e",
+      "name": "Edit Fields"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 2
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [-992, 176],
+      "id": "621e5895-c78f-477c-aaca-d43fccbfca74",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Give me exactly {{ $('Code').item.json['numberOfImages'] }} in-depth & detailed image prompts based on this story and quote. The videos are stoic, ancient Rome themed, featuring imagery like Marcus Aurelius and Seneca.\n\nSTORY: {{ $('Code').item.json.story }}\nQUOTE: {{ $('Code').item.json.quote }}\n\nSTRICT OUTPUT FORMAT:\nImage Prompt: A detailed description of [scene1] without any commas or quotes\nImage Prompt: A detailed description of [scene2] without any commas or quotes\n\nRequirements:\n1. Each prompt must begin with \"Image Prompt: \" exactly\n2. No quotation marks or commas in any prompt\n3. Exactly {{ $('Code').item.json['numberOfImages'] }} prompts\n4. Only output the prompts, no additional text\n5. Separate prompts with a single newline",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2,
+      "position": [704, 208],
+      "id": "261fee12-7b93-4ee9-be82-1c14a34e1dca",
+      "name": "Image Generation"
+    },
+    {
+      "parameters": {
+        "model": "mistralai/mistral-7b-instruct:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [752, 400],
+      "id": "67b5de3a-bf7c-4171-bb15-85eea8485590",
+      "name": "OpenRouter Chat Model7",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CREDENTIAL_ID",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the input from the Image Generation agent\nconst input = $json.output;\n\n// Get numberOfImages from the Code node\nlet numberOfImages;\ntry {\n  numberOfImages = $('Code').item.json.numberOfImages || 3;\n} catch (error) {\n  console.log('Could not get numberOfImages from Code node, defaulting to 3');\n  numberOfImages = 3;\n}\n\n// Get filename from Code node for consistent naming\nlet baseFilename;\ntry {\n  baseFilename = $('Code').item.json.filename || 'untitled';\n} catch (error) {\n  console.log('Could not get filename from Code node, using default');\n  baseFilename = 'untitled';\n}\n\nconsole.log('=== PROCESSING IMAGE PROMPTS ===');\nconsole.log('Requested images:', numberOfImages);\nconsole.log('Base filename:', baseFilename);\nconsole.log('Input:', input);\n\n// Handle empty or invalid input\nif (!input || typeof input !== 'string') {\n  console.error('Invalid input from Image Generation agent');\n  const fallbackPrompts = [];\n  for (let i = 1; i <= numberOfImages; i++) {\n    fallbackPrompts.push({\n      json: {\n        prompt: `Ancient Roman scene ${i}: Marcus Aurelius contemplating wisdom in marble hall with golden sunlight and classical architecture`,\n        imageIndex: i,\n        filename: `${baseFilename}_image_${i}`\n      }\n    });\n  }\n  return fallbackPrompts;\n}\n\n// Clean and split the input text\nconst lines = input\n  .split('\\n')\n  .map(line => line.trim())\n  .filter(line => line.length > 0);\n\nconst imagePrompts = [];\n\n// Extract prompts from lines\nfor (const line of lines) {\n  let prompt = line.replace(/^Image\\s+Prompt\\s*:?\\s*/i, '').trim();\n  prompt = prompt.replace(/^[\"']|[\"']$/g, '').trim();\n  prompt = prompt.replace(/^\\\\|\\\\$/g, '').trim();\n  \n  if (prompt.length > 10 && \n      !prompt.toLowerCase().includes('requirement') &&\n      !prompt.toLowerCase().includes('strict output') &&\n      !prompt.toLowerCase().includes('format:')) {\n    imagePrompts.push(prompt);\n  }\n}\n\nconsole.log('Extracted prompts:', imagePrompts);\n\n// Ensure we have exactly the requested number of prompts\nwhile (imagePrompts.length < numberOfImages) {\n  const index = imagePrompts.length + 1;\n  const fallback = `Ancient Roman philosophical scene ${index}: Stoic philosopher in contemplation surrounded by classical marble columns and warm golden light`;\n  imagePrompts.push(fallback);\n  console.log(`Added fallback prompt ${index}:`, fallback);\n}\n\n// Trim to exact number requested\nconst finalPrompts = imagePrompts.slice(0, numberOfImages);\n\nconsole.log('Final prompts count:', finalPrompts.length);\nconsole.log('Final prompts:', finalPrompts);\n\n// Return array of objects for n8n processing\nreturn finalPrompts.map((prompt, index) => ({\n  json: {\n    prompt: prompt,\n    imageIndex: index + 1,\n    filename: `${baseFilename}_image_${index + 1}`\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, -16],
+      "id": "119251f7-5eb5-4e1e-a477-7a8042312a68",
+      "name": "real"
+    },
+    {
+      "parameters": {
+        "jsCode": "// deAPI Image Generation\nconst imagePrompts = $input.all();\nconst results = [];\n\nconst DEAPI_KEY = \"YOUR_DEAPI_KEY_HERE\";\nconst BASE_URL = \"https://api.deapi.ai\";\n\nconsole.log('🚀 Starting deAPI image generation for', imagePrompts.length, 'prompts');\n\nfor (let i = 0; i < imagePrompts.length; i++) {\n  const item = imagePrompts[i].json;\n  const prompt = item.prompt;\n  const filename = item.filename;\n  const imageIndex = item.imageIndex;\n  \n  console.log(`📸 Processing image ${imageIndex}/${imagePrompts.length}: ${filename}`);\n  console.log(`🎨 Prompt: ${prompt.substring(0, 100)}...`);\n  \n  try {\n    console.log('📤 Submitting job to deAPI...');\n    \n    const requestBody = {\n      prompt: prompt,\n      model: \"Flux1schnell\",\n      width: 1024,\n      height: 1024,\n      seed: Math.floor(Math.random() * 1000000),\n      steps: 4\n    };\n    \n    const jobResponse = await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${BASE_URL}/api/v1/client/txt2img`,\n      headers: {\n        'Authorization': `Bearer ${DEAPI_KEY}`,\n        'Content-Type': 'application/json'\n      },\n      body: JSON.stringify(requestBody),\n      timeout: 10000\n    });\n    \n    const requestId = jobResponse.data?.request_id || jobResponse.request_id;\n    \n    if (!requestId) {\n      throw new Error('No request_id in response from deAPI');\n    }\n    \n    console.log(`✅ Job submitted. Request ID: ${requestId}`);\n    \n    let imageUrl = null;\n    let attempts = 0;\n    const maxAttempts = 60;\n    \n    console.log('⏳ Waiting for image generation...');\n    \n    while (attempts < maxAttempts) {\n      await new Promise(resolve => setTimeout(resolve, 3000));\n      attempts++;\n      \n      try {\n        const statusResponse = await this.helpers.httpRequest({\n          method: 'GET',\n          url: `${BASE_URL}/api/v1/client/request-status/${requestId}`,\n          headers: {\n            'Authorization': `Bearer ${DEAPI_KEY}`\n          },\n          timeout: 10000\n        });\n        \n        const status = statusResponse.data?.status || statusResponse.status;\n        console.log(`Status check ${attempts}/${maxAttempts}: ${status || 'unknown'}`);\n        \n        if (status === 'done' || status === 'completed') {\n          imageUrl = statusResponse.data?.result_url || statusResponse.result_url;\n          console.log(`✅ Image ready!`);\n          break;\n        } else if (status === 'error' || status === 'failed') {\n          const errorMsg = statusResponse.data?.error || statusResponse.error || 'Unknown error';\n          throw new Error(`Job failed: ${errorMsg}`);\n        }\n        \n      } catch (statusError) {\n        console.error(`Error checking status (attempt ${attempts}):`, statusError.message);\n        if (attempts >= maxAttempts) {\n          throw statusError;\n        }\n      }\n    }\n    \n    if (!imageUrl) {\n      throw new Error('Image generation timeout after 3 minutes');\n    }\n    \n    console.log(`📥 Downloading image...`);\n    \n    const imageResponse = await this.helpers.httpRequest({\n      method: 'GET',\n      url: imageUrl,\n      encoding: 'arraybuffer',\n      timeout: 30000\n    });\n    \n    const base64Image = Buffer.from(imageResponse).toString('base64');\n    \n    if (!base64Image || base64Image.length < 1000) {\n      throw new Error('Invalid or empty image data received');\n    }\n    \n    results.push({\n      json: {\n        filename: `${filename}.png`,\n        imageIndex: imageIndex,\n        imageData: base64Image,\n        prompt: prompt,\n        success: true,\n        downloadUrl: imageUrl,\n        imageSize: base64Image.length,\n        requestId: requestId,\n        api: 'deAPI',\n        model: 'Flux1schnell'\n      }\n    });\n    \n    console.log(`✅ Successfully generated image ${imageIndex}: ${filename} (${Math.round(base64Image.length / 1024)}KB)`);\n    \n  } catch (error) {\n    console.error(`❌ Failed to generate image ${imageIndex}:`, error.message);\n    \n    results.push({\n      json: {\n        filename: `${filename}.png`,\n        imageIndex: imageIndex,\n        imageData: null,\n        prompt: prompt,\n        success: false,\n        error: error.message,\n        downloadUrl: null\n      }\n    });\n  }\n  \n  if (i < imagePrompts.length - 1) {\n    console.log('⏳ Waiting 3 seconds before next job...');\n    await new Promise(resolve => setTimeout(resolve, 3000));\n  }\n}\n\nconst successCount = results.filter(r => r.json.success).length;\nconsole.log(`🎯 Completed: ${successCount}/${results.length} images generated successfully with deAPI`);\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1344, -16],
+      "id": "4f7c56cd-69dc-4faf-a489-a262a24be0c9",
+      "name": "process all images"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Log generated images for debugging\nconst images = $input.all();\n\nconsole.log('=== GENERATED IMAGES DEBUG ===');\nconsole.log('Total images:', images.length);\n\nimages.forEach((item, index) => {\n  const data = item.json;\n  console.log(`\\nImage ${index + 1}:`);\n  console.log('Filename:', data.filename);\n  console.log('Success:', data.success);\n  console.log('Image size:', data.imageSize ? `${Math.round(data.imageSize / 1024)}KB` : 'N/A');\n  console.log('Prompt:', data.prompt ? data.prompt.substring(0, 100) + '...' : 'N/A');\n  \n  if (!data.success) {\n    console.log('Error:', data.error);\n  }\n});\n\n// Pass through all images for next node\nreturn images;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1600, -16],
+      "id": "d24b171a-d8ba-4b43-b758-f7abaa8fd347",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Convert base64 image data to proper n8n binary format\nconst allImages = $input.all();\nconst results = [];\n\nconsole.log('=== CONVERTING FOR N8N VIEW/DOWNLOAD ===');\nconsole.log('Total images to convert:', allImages.length);\n\nfor (let i = 0; i < allImages.length; i++) {\n  const item = allImages[i];\n  const data = item.json;\n  \n  console.log(`\\nProcessing image ${i + 1}:`);\n  console.log('Filename:', data.filename);\n  console.log('Success:', data.success);\n  console.log('Has image data:', !!data.imageData);\n  \n  if (!data.imageData || !data.success) {\n    console.log('❌ Skipping - no image data');\n    continue;\n  }\n\n  try {\n    const imageBuffer = Buffer.from(data.imageData, 'base64');\n    console.log(`✅ Converted ${data.filename} - Size: ${Math.round(imageBuffer.length / 1024)}KB`);\n    \n    const result = {\n      json: {\n        filename: data.filename,\n        imageIndex: data.imageIndex,\n        prompt: data.prompt,\n        success: true,\n        size: imageBuffer.length,\n        mimeType: 'image/png'\n      },\n      binary: {\n        data: {\n          data: imageBuffer.toString('base64'),\n          mimeType: 'image/png',\n          fileName: data.filename,\n          fileExtension: 'png',\n          fileSize: imageBuffer.length\n        }\n      }\n    };\n    \n    results.push(result);\n    \n  } catch (error) {\n    console.error(`❌ Failed to convert ${data.filename}:`, error.message);\n    \n    results.push({\n      json: {\n        filename: data.filename,\n        imageIndex: data.imageIndex,\n        prompt: data.prompt,\n        success: false,\n        error: error.message\n      }\n    });\n  }\n}\n\nconsole.log(`\\n📊 Successfully converted ${results.length} images for n8n viewing`);\n\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1184, 240],
+      "id": "e1266158-f6a7-4cf8-aca0-4e17ed9891f6",
+      "name": "conversion"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [1408, 240],
+      "id": "9f9e441c-2b25-4900-bc7a-9895ef1ef585",
+      "name": "Wait",
+      "webhookId": "d987f221-a5bb-44e2-bc59-c47c1d6e38f0"
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('=== DEBUG INFO ===');\nconsole.log('Script from Code node:', $node['Code'].json['script']);\nconsole.log('Script length:', $node['Code'].json['script']?.length);\nconsole.log('Filename:', $node['Code'].json['filename']);\n\n// Return the data so HTTP Request can still use it\nreturn $input.all();"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [464, 176],
+      "id": "ac8fab70-fa92-4c65-aab6-2b21ee7b1a1c",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the script from the Code node\nconst script = $node['Code'].json['script'] || 'Test message';\nconst filename = $node['Code'].json['filename'] || 'test';\n\nconsole.log('=== MAKING TTS REQUEST ===');\nconsole.log('Script:', script.substring(0, 100) + '...');\n\ntry {\n  const response = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'YOUR_KOKORO_TTS_URL_HERE/v1/audio/speech',\n    headers: {\n      'Content-Type': 'application/json',\n      'Accept': 'audio/mpeg'\n    },\n    body: JSON.stringify({\n      model: 'kokoro',\n      input: script,\n      voice: 'am_michael'\n    }),\n    encoding: 'arraybuffer',\n    timeout: 30000\n  });\n\n  console.log('✅ TTS request successful, response size:', response.length);\n\n  const base64Audio = Buffer.from(response).toString('base64');\n\n  return {\n    json: {\n      success: true,\n      filename: `voiceover_${filename}.mp3`,\n      size: response.length\n    },\n    binary: {\n      data: {\n        data: base64Audio,\n        mimeType: 'audio/mpeg',\n        fileName: `voiceover_${filename}.mp3`,\n        fileExtension: 'mp3',\n        fileSize: response.length\n      }\n    }\n  };\n\n} catch (error) {\n  console.error('❌ TTS request failed:', error.message);\n  console.error('Full error:', error);\n  \n  return {\n    json: {\n      success: false,\n      error: error.message,\n      filename: `error_${filename}.txt`\n    }\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [448, -32],
+      "id": "e647fc3f-8bbd-43cf-938a-0cb97c6b5562",
+      "name": "kokoro"
+    },
+    {
+      "parameters": {
+        "jsCode": "// FINAL VERSION — AUDIO IS SOURCE OF TRUTH (SYNC FIXED)\n\ntry {\n  const kokoroData = $('kokoro').item;\n  const script = $('Code').item.json.script || '';\n\n  console.log('=== CALCULATING AUDIO DURATION (AUDIO-DRIVEN) ===');\n\n  if (!kokoroData?.binary?.data?.data) {\n    throw new Error('No audio binary data found from kokoro node');\n  }\n\n  const audioBuffer = Buffer.from(kokoroData.binary.data.data, 'base64');\n  const fileSizeBytes = audioBuffer.length;\n  const fileSizeKB = Math.round(fileSizeBytes / 1024);\n\n  const wordsPerMinute = 145;\n  const wordCount = script.trim().split(/\\s+/).length;\n  const estimatedDuration = (wordCount / wordsPerMinute) * 60;\n\n  const finalDuration = Math.round(estimatedDuration * 100) / 100;\n\n  console.log(`📝 Word count: ${wordCount}`);\n  console.log(`🎙 Estimated audio duration: ${finalDuration}s`);\n  console.log(`🔊 Audio size: ${fileSizeKB} KB`);\n\n  return {\n    json: {\n      success: true,\n      durationSeconds: finalDuration,\n      durationFormatted: `0:${Math.round(finalDuration)}`,\n      wordCount,\n      wordsPerMinute,\n      estimatedDuration: finalDuration,\n      fileSizeBytes,\n      fileSizeKB,\n      filename: kokoroData.json.filename,\n      note: \"Duration derived from narration to keep audio, captions, and video in sync\"\n    }\n  };\n\n} catch (error) {\n  console.error('❌ Failed to calculate audio duration:', error.message);\n\n  return {\n    json: {\n      success: false,\n      error: error.message,\n      durationSeconds: 0,\n      durationFormatted: \"0:00\",\n      wordCount: 0,\n      filename: \"unknown\"\n    }\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1584, -336],
+      "id": "35a904e7-ffa6-4ec8-83d2-e3f8d231d0e1",
+      "name": "calculate audio duration"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Collect images from conversion node\nconst images = $('conversion').all()\n  .filter(i => i.binary && i.binary.data)\n  .map(i => i.binary.data.data);\n\n// Collect audio from kokoro\nconst audioItem = $('kokoro').first();\n\nif (!audioItem?.binary?.data?.data) {\n  throw new Error('Audio binary missing from kokoro node');\n}\n\n// Collect captions from Code5 (SRT generator)\nconst captionsItem = $('Code5').first();\nlet captions = null;\n\nif (captionsItem?.binary?.data?.data) {\n  captions = captionsItem.binary.data.data;\n}\n\n// Duration\nconst durationItem = $('calculate audio duration').first();\nconst duration = durationItem?.json?.durationSeconds || 30;\n\n// Video name\nconst filename = audioItem.json.filename\n  .replace('voiceover_', '')\n  .replace('.mp3', '');\n\n// Build payload\nreturn [{\n  json: {\n    name: filename,\n    duration: duration,\n    images: images,\n    audio: audioItem.binary.data.data,\n    captions: captions\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2256, -176],
+      "id": "32aee1b7-cece-4f21-9cd4-31bb3e82aed0",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== CODE4 – FINAL STABLE VERSION =====\n\nconst payload = $json;\n\nconsole.log(\"📤 Sending payload to Python server\");\nconsole.log(\"Images:\", payload.images?.length);\nconsole.log(\"Duration:\", payload.duration);\n\nconst response = await this.helpers.httpRequest({\n  method: \"POST\",\n  url: \"http://127.0.0.1:5000/create-video\",\n  headers: {\n    \"Content-Type\": \"application/json\"\n  },\n  body: JSON.stringify(payload),\n  timeout: 180000\n});\n\nif (!response.video_data) {\n  throw new Error(\"Python did not return video_data\");\n}\n\nreturn [{\n  json: {\n    success: true,\n    filename: response.filename,\n    size: response.size,\n    duration: response.duration\n  },\n  binary: {\n    data: {\n      data: response.video_data,\n      mimeType: \"video/mp4\",\n      fileName: response.filename,\n      fileExtension: \"mp4\"\n    }\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2496, 0],
+      "id": "c9c00b22-9be0-4eef-9399-c1c7ae319da7",
+      "name": "Code4"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Code5 — AUDIO-SYNCED, WORD-WEIGHTED SRT (PRODUCTION SAFE)\n\nconst script = $node['Code'].json.script || '';\nconst filename = $node['Code'].json.filename || 'video';\nconst audioDuration = $node['calculate audio duration'].json.durationSeconds;\n\nconsole.log('=== GENERATING WORD-WEIGHTED SRT ===');\nconsole.log('Duration:', audioDuration, 's');\n\n// ---------- HELPERS ----------\nfunction formatSRTTime(seconds) {\n  const hrs = Math.floor(seconds / 3600);\n  const mins = Math.floor((seconds % 3600) / 60);\n  const secs = Math.floor(seconds % 60);\n  const ms = Math.floor((seconds % 1) * 1000);\n  return `${hrs.toString().padStart(2,'0')}:${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')},${ms.toString().padStart(3,'0')}`;\n}\n\n// ---------- SPLIT SCRIPT ----------\nconst words = script.trim().split(/\\s+/);\nconst captions = [];\nlet i = 0;\n\nwhile (i < words.length) {\n  const chunkSize = Math.min(5, words.length - i);\n  captions.push(words.slice(i, i + chunkSize).join(' '));\n  i += chunkSize;\n}\n\n// ---------- WORD-BASED TIMING ----------\nconst totalWords = words.length;\nlet currentTime = 0;\nlet srt = '';\n\ncaptions.forEach((text, index) => {\n  const wordCount = text.split(/\\s+/).length;\n  const segmentDuration = (wordCount / totalWords) * audioDuration;\n\n  const start = currentTime;\n  const end = currentTime + segmentDuration;\n  currentTime = end;\n\n  srt += `${index + 1}\\n`;\n  srt += `${formatSRTTime(start)} --> ${formatSRTTime(end)}\\n`;\n  srt += `${text}\\n\\n`;\n});\n\nconsole.log(`Generated ${captions.length} captions`);\nconsole.log(`Total words: ${totalWords}`);\n\n// ---------- OUTPUT ----------\nconst srtFilename = `captions_${filename}.srt`;\nconst base64SRT = Buffer.from(srt, 'utf8').toString('base64');\n\nreturn {\n  json: {\n    success: true,\n    filename: srtFilename,\n    captionCount: captions.length,\n    duration: audioDuration\n  },\n  binary: {\n    data: {\n      data: base64SRT,\n      mimeType: 'application/x-subrip',\n      fileName: srtFilename,\n      fileExtension: 'srt'\n    }\n  }\n};"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2016, 112],
+      "id": "d7794f7f-145d-4f61-9416-c329c508f5d7",
+      "name": "Code5"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "YOUR_GOOGLE_SHEET_ID_HERE",
+          "mode": "list",
+          "cachedResultName": "real",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID_HERE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_GOOGLE_SHEET_ID_HERE/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "TITLE ": "={{ $json.title }}",
+            "DESCRIPTION": "={{ $json.description }}  ",
+            "STORY": "={{ $json.story }}",
+            "QUOTE": "={{ $json.quote }}",
+            "KEYWODS": "={{ $json.keywords }}",
+            "NUMBER OF IMAGES": "={{ $json.numberOfImages }}",
+            "FILENAME": "= \"={{ $json.filename }}\"",
+            "SCRIPT": "={{ $json.script }}",
+            "TIME TO PUBLISH": "={{ $json.timeToPublish }}"
+          },
+          "matchingColumns": ["TITLE "],
+          "schema": [
+            { "id": "TITLE ", "displayName": "TITLE ", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "DESCRIPTION", "displayName": "DESCRIPTION", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "STORY", "displayName": "STORY", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true, "removed": false },
+            { "id": "QUOTE", "displayName": "QUOTE", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "KEYWODS", "displayName": "KEYWODS", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "NUMBER OF IMAGES", "displayName": "NUMBER OF IMAGES", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "FILENAME", "displayName": "FILENAME", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "SCRIPT", "displayName": "SCRIPT", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true },
+            { "id": "TIME TO PUBLISH", "displayName": "TIME TO PUBLISH", "required": false, "defaultMatch": false, "display": true, "type": "string", "canBeUsedToMatch": true }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [208, 176],
+      "id": "79974001-c7b6-4514-83e3-307a11540cac",
+      "name": "Append or update row in sheet1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GOOGLE_SHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "mistralai/mistral-7b-instruct:free",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [-528, 432],
+      "id": "f70bba19-a414-406c-ba66-7fb57c9ca3b6",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "YOUR_OPENROUTER_CREDENTIAL_ID",
+          "name": "OpenRouter account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "={{ $('kokoro').item.json.filename }}",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_VOICEOVER_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "Voiceover",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_VOICEOVER_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [832, -32],
+      "id": "2340a011-fcd9-40ec-9552-672da1b33c4c",
+      "name": "Upload file2",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "name": "=\"={{ $('Wait') }}\"",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "YOUR_IMAGES_FOLDER_ID",
+          "mode": "list",
+          "cachedResultName": "Images",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/YOUR_IMAGES_FOLDER_ID"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [1632, 240],
+      "id": "677f3863-d22f-4de8-967f-3ddcafb095dd",
+      "name": "Upload file3",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_GOOGLE_DRIVE_CREDENTIAL_ID",
+          "name": "Google Drive account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "c7b80381-ac9a-49e4-ac95-a28956f3a549",
+              "name": "video name ",
+              "value": "={{ $('calculate audio duration').item.json.filename }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1776, -336],
+      "id": "c3aca178-9fb4-49dd-b00d-e5bdc7414e5f",
+      "name": "video name"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Code": { "main": [[{ "node": "Append or update row in sheet1", "type": "main", "index": 0 }]] },
+    "Description Agent": { "main": [[{ "node": "Code", "type": "main", "index": 0 }]] },
+    "OpenRouter Chat Model": { "ai_languageModel": [[{ "node": "Description Agent", "type": "ai_languageModel", "index": 0 }]] },
+    "Parse JSON Output": { "main": [[{ "node": "Description Agent", "type": "main", "index": 0 }]] },
+    "Idea & Script": { "main": [[{ "node": "Parse JSON Output", "type": "main", "index": 0 }]] },
+    "Edit Fields": { "main": [[{ "node": "Idea & Script", "type": "main", "index": 0 }]] },
+    "Schedule Trigger": { "main": [[{ "node": "Edit Fields", "type": "main", "index": 0 }]] },
+    "Image Generation": { "main": [[{ "node": "real", "type": "main", "index": 0 }]] },
+    "OpenRouter Chat Model7": { "ai_languageModel": [[{ "node": "Image Generation", "type": "ai_languageModel", "index": 0 }]] },
+    "real": { "main": [[{ "node": "process all images", "type": "main", "index": 0 }]] },
+    "process all images": { "main": [[{ "node": "Code2", "type": "main", "index": 0 }]] },
+    "Code2": { "main": [[{ "node": "conversion", "type": "main", "index": 0 }]] },
+    "conversion": { "main": [[{ "node": "Wait", "type": "main", "index": 0 }]] },
+    "Wait": { "main": [[{ "node": "Upload file3", "type": "main", "index": 0 }]] },
+    "Code3": { "main": [[{ "node": "kokoro", "type": "main", "index": 0 }]] },
+    "kokoro": { "main": [[{ "node": "Upload file2", "type": "main", "index": 0 }]] },
+    "calculate audio duration": { "main": [[{ "node": "video name", "type": "main", "index": 0 }]] },
+    "Code1": { "main": [[{ "node": "Code4", "type": "main", "index": 0 }]] },
+    "Code4": { "main": [[]] },
+    "Append or update row in sheet1": { "main": [[{ "node": "Code3", "type": "main", "index": 0 }]] },
+    "OpenRouter Chat Model1": { "ai_languageModel": [[{ "node": "Idea & Script", "type": "ai_languageModel", "index": 0 }]] },
+    "Upload file2": { "main": [[{ "node": "Image Generation", "type": "main", "index": 0 }]] },
+    "Upload file3": { "main": [[{ "node": "calculate audio duration", "type": "main", "index": 0 }]] },
+    "video name": { "main": [[{ "node": "Code5", "type": "main", "index": 0 }]] },
+    "Code5": { "main": [[{ "node": "Code1", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "versionId": "0d28eb08-d505-42ff-b98d-c8b4257eb988",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "cbe9832c8da63cf7439811b60d58be63e9e456de7c9fc39904fa7de2b3079d60"
+  },
+  "id": "GenrNzbneYOmdpYG",
+  "tags": []
+}
