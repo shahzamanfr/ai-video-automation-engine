@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Stoic AI Short-Form Video Automation
 
 An end-to-end AI content generation pipeline built with n8n.
@@ -39,3 +40,7 @@ Schedule Trigger
 Automated faceless YouTube Shorts pipeline focused on stoic philosophy and ancient Rome themes.
 
 Fully automated every 2 hours.
+=======
+# ai-video-automation-engine
+End-to-end AI video automation pipeline using LLMs, image generation, TTS, caption syncing, and programmatic video rendering with n8n orchestration.
+>>>>>>> c88053f62266b766d403ebf23539249441e8c994
